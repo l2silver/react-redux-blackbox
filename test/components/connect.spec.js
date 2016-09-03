@@ -5,6 +5,7 @@ import TestUtils from 'react-addons-test-utils'
 import { createStore } from 'redux'
 import { connect } from '../../src/index'
 
+const randomId = Math.floor((Math.random() * 100000))
 describe('React', () => {
   describe('connect', () => {
     class Passthrough extends Component {
@@ -15,42 +16,131 @@ describe('React', () => {
 
     class ProviderMock extends Component {
       getChildContext() {
-        return { store: this.props.store }
+        return { 
+          store: this.props.store,
+          getUniqueId: ()=>randomId,
+          setMapStateToProps: ()=>{},
+          unsetMapStateToProps: ()=>{}
+        }
       }
 
       render() {
-        return Children.only(this.props.children)
+        const { store, ...props } = this.props
+        return Children.only(this.props.children)        
       }
     }
 
     ProviderMock.childContextTypes = {
-      store: PropTypes.object.isRequired
-    }
+      store: PropTypes.object,
+      getUniqueId: PropTypes.func,
+      setMapStateToProps: PropTypes.func,
+      unsetMapStateToProps: PropTypes.func
 
+    }
+    const getUniqueId = ()=>randomId
+    const setMapStateToProps = ()=>{}
+    const unsetMapStateToProps = ()=>{}
+    const blackbox = {}
+    const store = createStore(() => ({}))
+    
     function stringBuilder(prev = '', action) {
       return action.type === 'APPEND'
         ? prev + action.body
         : prev
     }
-
-    it('should receive the store in the context', () => {
-      const store = createStore(() => ({}))
-
+    describe('constructor', () => {
       @connect()
       class Container extends Component {
         render() {
           return <Passthrough {...this.props} />
         }
       }
+      it('should generate default properties', () => {
+        const container = new Container({ blackbox }, { store, getUniqueId, setMapStateToProps, unsetMapStateToProps })
+        expect(container.uniqueId).toBe(randomId)
+        expect(container.dispatchProps).toEqual({})
+        expect(container.stateProps).toEqual({})
+        expect(container.mapStateToProps_selector()).toEqual({})
+        expect(container.mapDispatchToProps_selector('dispatch')).toEqual({ dispatch: 'dispatch' })
+      })
+      it('should generate default properties', () => {
+        const container = new Container({ blackbox }, { store, getUniqueId, setMapStateToProps, unsetMapStateToProps })
+        expect(container.uniqueId).toBe(randomId)
+        expect(container.dispatchProps).toEqual({})
+        expect(container.stateProps).toEqual({})
+        expect(container.mapStateToProps_selector()).toEqual({})
+        expect(container.mapDispatchToProps_selector('dispatch')).toEqual({ dispatch: 'dispatch' })
+      })
+      it('should generate factories', () => {
+        function factory() {
+          return {}
+        }
+        @connect([ ()=>factory, ()=>{}, true ], [ ()=>factory, ()=>{}, true ])
+        class Container extends Component {
+          render() {
+            return <Passthrough {...this.props} />
+          }
+        }
+        const container = new Container({ blackbox }, { store, getUniqueId, setMapStateToProps, unsetMapStateToProps })
+        expect(container.mapStateToProps_selector).toEqual(factory)
+        expect(container.mapDispatchToProps_selector).toEqual(factory)
+      })
+    })
+    describe('componentDidMount', () => {
+      @connect()
+      class Container extends Component {
+        render() {
+          return <Passthrough {...this.props} />
+        }
+      }
+      it('should setMapStateToProps', () => {
+        const context = { store, getUniqueId, setMapStateToProps, unsetMapStateToProps }
+        const setMapStateToPropsSpy = expect.spyOn(context, 'setMapStateToProps')
+        const container = new Container({ blackbox }, context)
+        container.componentDidMount()
+        expect(setMapStateToPropsSpy).toHaveBeenCalledWith(container.uniqueId, container.mapStateToProps_selector, container.mapStatToProps_ownProps)
+      })
+      it('should setMapStateToProps and addConnectIds', () => {
+        const context = { store, getUniqueId, setMapStateToProps, unsetMapStateToProps, addConnectIds: ()=>{} }
+        const setMapStateToPropsSpy = expect.spyOn(context, 'setMapStateToProps')
+        const addConnectIdsSpy = expect.spyOn(context, 'addConnectIds')
+        const container = new Container({ blackbox }, context)
+        container.componentDidMount()
+        expect(setMapStateToPropsSpy).toHaveBeenCalledWith(container.uniqueId, container.mapStateToProps_selector, container.mapStatToProps_ownProps)
+        expect(addConnectIdsSpy).toHaveBeenCalledWith(container.uniqueId)
+      })
+    })
 
-      const tree = TestUtils.renderIntoDocument(
-        <ProviderMock store={store}>
-          <Container pass="through" />
-        </ProviderMock>
-      )
-
-      const container = TestUtils.findRenderedComponentWithType(tree, Container)
-      expect(container.context.store).toBe(store)
+    describe.only('componentWillUnmount', () => {
+      @connect()
+      class Container extends Component {
+        render() {
+          return <Passthrough {...this.props} />
+        }
+      }
+      
+      it('should unsetMapStateToProps and clearCache', () => {
+        const props = { blackbox }
+        const context = { store, getUniqueId, unsetMapStateToProps }
+        const unsetMapStateToPropsSpy = expect.spyOn(context, 'unsetMapStateToProps')
+        const container = new Container(props, context)
+        const clearCacheSpy = expect.spyOn(container, 'clearCache')
+        container.componentWillUnmount()
+        expect(unsetMapStateToPropsSpy).toHaveBeenCalledWith(randomId)
+        expect(clearCacheSpy).toHaveBeenCalled()
+      })
+      it('should unsetMapStateToProps clearCache and removeConnectIds', () => {
+        const props = { blackbox: {} }
+        const context = { store, getUniqueId, unsetMapStateToProps, removeConnectIds: ()=>{} }
+        const unsetMapStateToPropsSpy = expect.spyOn(context, 'unsetMapStateToProps')
+        const removeConntectIdsSpy = expect.spyOn(context, 'removeConnectIds')
+        const container = new Container(props, context)
+        const clearCacheSpy = expect.spyOn(container, 'clearCache')
+        container.componentWillUnmount()
+        expect(unsetMapStateToPropsSpy).toHaveBeenCalledWith(randomId)
+        expect(removeConntectIdsSpy).toHaveBeenCalledWith(randomId)
+        expect(clearCacheSpy).toHaveBeenCalled()
+      })
     })
 
     it('should pass state and props to the given component', () => {

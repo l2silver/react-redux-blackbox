@@ -5,6 +5,7 @@ import { createStore } from 'redux'
 import { Provider } from '../../src/index'
 
 describe('React', () => {
+  const store = createStore((state = 10) => state + 1)
   describe('Provider', () => {
     class Child extends Component {
 
@@ -94,7 +95,7 @@ describe('React', () => {
       expect(spy.calls.length).toBe(1)
       expect(spy.calls[0].arguments[0]).toBe(
         '<Provider> does not support changing `store` on the fly. ' +
-        'It is most likely that you see this error because you updated to ' +
+        'You are most likely seeing this error because you updated to ' +
         'Redux 2.x and React Redux 2.x which no longer hot reload reducers ' +
         'automatically. See https://github.com/reactjs/react-redux/releases/' +
         'tag/v2.0.0 for the migration instructions.'
@@ -106,6 +107,34 @@ describe('React', () => {
 
       expect(child.context.store.getState()).toEqual(11)
       expect(spy.calls.length).toBe(0)
+    })
+    it('should return next id', () => {
+      const store = createStore((state = 10) => state + 1)
+      const provider = new Provider({ store }, {})
+      expect(provider.currentUniqueId).toEqual(1)
+      expect(provider.nextUniqueId(provider)).toEqual(1)
+      expect(provider.currentUniqueId).toEqual(2)
+    })
+    it('should setMapStateToProps', () => {
+      const provider = new Provider({ store }, {})
+      const fakeSelector = ()=>{}
+      expect(provider.allMapStateToProps).toEqual({})
+      provider.setMapStateToProps(1, fakeSelector, [])
+      expect(provider.allMapStateToProps).toEqual(
+        {
+          1: { 
+            mapStateToPropsSelector: fakeSelector, 
+            propArguments: []
+          }
+        }
+      )
+    })
+    it('should unsetMapStateToProps', () => {
+      const provider = new Provider({ store }, {})
+      provider.allMapStateToProps = { 1: {} }
+      expect(provider.allMapStateToProps).toNotEqual({})
+      provider.unsetMapStateToProps(1)
+      expect(provider.allMapStateToProps).toEqual({})
     })
   })
 })
