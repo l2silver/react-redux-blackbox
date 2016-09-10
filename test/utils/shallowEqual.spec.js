@@ -70,5 +70,13 @@ describe('Utils', () => {
         )
       ).toBe(false)
     })
+    it('should return true when comparing 2 empty objects', () => {
+      expect(
+        shallowEqual(
+          {},
+          {}
+        )
+      ).toBe(true)
+    })
   })
 })

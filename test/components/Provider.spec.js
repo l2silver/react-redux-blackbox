@@ -122,10 +122,7 @@ describe('React', () => {
       provider.setMapStateToProps(1, fakeSelector, [])
       expect(provider.allMapStateToProps).toEqual(
         {
-          1: { 
-            mapStateToPropsSelector: fakeSelector, 
-            propArguments: []
-          }
+          1: fakeSelector,
         }
       )
     })

@@ -1,14 +1,33 @@
 import { Component, createElement, PropTypes } from 'react'
-import pick from 'lodash.pick'
 import shallowEqual from '../utils/shallowEqual'
 import hoistStatics from 'hoist-non-react-statics'
 import getDisplayName from '../utils/getDisplayName'
+import setSome from '../utils/setSome'
+import pickSet from '../utils/pickSet'
+import invariant from 'invariant'
 
 export default function wrapWithFilter(WrappedComponent, options = {}) {
   const connectDisplayName = `Filter(${getDisplayName(WrappedComponent)})`
   const { pure = true, withRef = false } = options
 
   class Filter extends Component {
+    constructor(props, context) {
+      invariant((context.getBlackboxFacsimiles),
+        `Could not find "getBlackboxFacsimiles" in the ` +
+        `context of "${connectDisplayName}". Please make sure the react-redux-blackbox ` +
+        `Provider component is at the root of the application`
+      )
+      super(props, context)
+      const { blackbox, ...otherProps } = props
+      invariant((props.blackbox),
+        `Could not find "blackbox" in the ` +
+        `props of "${connectDisplayName}". `
+      )
+      this.blackbox = blackbox
+      this.otherProps = otherProps
+      this.connectIds = new Set()
+    }
+
     addConnectIds(ids) {
       ids.forEach(id => {
         this.connectIds.add(id)
@@ -19,7 +38,7 @@ export default function wrapWithFilter(WrappedComponent, options = {}) {
       ids.forEach(id => {
         this.connectIds.delete(id)
       })
-      this.context.removeConnectIds && this.context.removeConnectIds(this.connectIds)
+      this.context.removeConnectIds && this.context.removeConnectIds(ids)
     }
     getChildContext() {
       return { 
@@ -27,42 +46,28 @@ export default function wrapWithFilter(WrappedComponent, options = {}) {
         removeConnectIds: this.removeConnectIds.bind(this)
       }
     }
-    constructor(props, context) {
-      super(props, context)
-      const { blackbox, ...otherProps } = props
-      this.blackbox = blackbox
-      this.otherProps = otherProps
-      this.connectIds = new Set()
-    }
 
     otherProps_changed(otherProps) {
       if(shallowEqual(otherProps, this.otherProps)) {
-        return true
+        return false
       }
       this.otherProps = otherProps
-      return false
+      return true
     }
 
-    fileredBlackbox_changed(blackbox) {
-      let change = false
-      try {
-        this.connectIds.forEach(id => {
-          if(this.context.getBlackboxFacsimiles(id)) {
-            return
-          }
-          throw new Error()
-        })
-      } catch(e) {
-        change = true
-        this.blackbox = pick(blackbox, this.connectIds)
-      } finally {
-        return change
+    filteredBlackbox_changed(blackbox) {
+      const change = setSome(this.connectIds, id => !this.context.getBlackboxFacsimiles(id))
+      if(change) {
+        this.blackbox = pickSet(blackbox, this.connectIds)
       }
+      return change
     }
 
     shouldComponentUpdate(nextProps) {
       const { blackbox, ...otherProps } = nextProps
-      return !pure || this.filteredBlackbox_changed(blackbox) || this.otherProps_changed(otherProps)
+      const blackboxChanged = this.filteredBlackbox_changed(blackbox)
+      const otherPropsChanged = this.otherProps_changed(otherProps)
+      return !pure || blackboxChanged || otherPropsChanged
     }
 
     componentWillUnmount() {
@@ -95,12 +100,16 @@ export default function wrapWithFilter(WrappedComponent, options = {}) {
   Filter.displayName = connectDisplayName
   Filter.WrappedComponent = WrappedComponent
   Filter.contextTypes = {
-    getUniqueId: PropTypes.func.isRequired,
-    addConnectIds: PropTypes.func.isOptional,
-    removeConnectIds: PropTypes.func.isOptional
+    addConnectIds: PropTypes.func,
+    removeConnectIds: PropTypes.func,
+    getBlackboxFacsimiles: PropTypes.func.isRequired
   }
   Filter.propTypes = {
     blackbox: PropTypes.object.isRequired
+  }
+  Filter.childContextTypes = {
+    addConnectIds: PropTypes.func,
+    removeConnectIds: PropTypes.func 
   }
 
   return hoistStatics(Filter, WrappedComponent)

@@ -57,27 +57,23 @@ export default class Provider extends Component {
   }
 
   getBlackbox() {
+    const nextBlackbox = {}
     this.blackboxFacsimiles = {}
     Object.keys(this.allMapStateToProps)
     .forEach(
       id => {
         const idSelector = this.allMapStateToProps[id]
-        const nextStateProps = idSelector.selector(this.state.storeState, idSelector.propArguments)
-        if(this.blackbox[id] === nextStateProps) {
-          this.blackboxFacsimiles[id] = true
-        } else {
-          this.blackboxFacsimiles[id] = false
-          this.blackbox[id] = nextStateProps
-        }
+        const [ change, nextStateProps ] = idSelector(this.state.storeState)
+        
+        this.blackboxFacsimiles[id] = !change
+        nextBlackbox[id] = nextStateProps
       }
     )
+    this.blackbox = nextBlackbox
     return this.blackbox
   }
-  setMapStateToProps(id, selector, propArguments) {
-    this.allMapStateToProps[id] = {
-      selector,
-      propArguments
-    }
+  setMapStateToProps(id, selector) {
+    this.allMapStateToProps[id] = selector
   }
 
   unsetMapStateToProps(id) {
@@ -100,6 +96,7 @@ export default class Provider extends Component {
     if (!this.unsubscribe) {
       return
     }
+    
     const pure = this.getPure(this)
     const storeState = this.store.getState()
     const prevStoreState = this.state.storeState

@@ -5,6 +5,7 @@
   "main": "./lib/index.js",
   "scripts": {
     "build:lib": "babel src --out-dir lib",
+    "build:watch": "npm run build:lib -- -watch src",
     "build:umd": "cross-env NODE_ENV=development webpack src/index.js dist/react-redux.js",
     "build:umd:min": "cross-env NODE_ENV=production webpack src/index.js dist/react-redux.min.js",
     "build": "npm run build:lib && npm run build:umd && npm run build:umd:min && node ./prepublish",

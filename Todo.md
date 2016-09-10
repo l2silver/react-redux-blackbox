@@ -1,0 +1,2 @@
+Complete testing for appendMapStateToProps
+Add flowtype
