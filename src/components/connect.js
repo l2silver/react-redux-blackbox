@@ -10,7 +10,10 @@ import invariant from 'invariant'
 
 const defaultStateProps = {}
 
-const defaultMapOwnProps = props => props 
+const defaultMapOwnProps = props => {
+  const { blackbox, ...otherProps } = props
+  return otherProps
+}
 const defaultMapStateToProps = state => defaultStateProps // eslint-disable-line no-unused-vars
 const defaultMapDispatchToProps = dispatch => ({ dispatch })
 const defaultMergeProps = (stateProps, dispatchProps, parentProps) => ({
@@ -39,15 +42,19 @@ class ShouldComponentUpdate extends Component {
 export default function connect(mapStateToProps, mapDispatchToProps, mergeProps, options = {}) {
   let mapStateToProps_selector = mapStateToProps || defaultMapStateToProps
   let mapStateToProps_ownPropsSelector = defaultMapOwnProps
+  let mapStateToProps_definitelyAFactory = false
   if(Array.isArray(mapStateToProps)) {
     mapStateToProps_selector = mapStateToProps[0]
     mapStateToProps_ownPropsSelector = mapStateToProps[1] || defaultMapOwnProps
+    mapStateToProps_definitelyAFactory = !!mapStateToProps[2]
   }
   let mapDispatchToProps_selector = mapDispatchToProps || defaultMapDispatchToProps
   let mapDispatchToProps_ownPropsSelector = defaultMapOwnProps
+  let mapDispatchToProps_definitelyAFactory = false
   if(Array.isArray(mapDispatchToProps)) {
     mapDispatchToProps_selector = mapDispatchToProps[0]
     mapDispatchToProps_ownPropsSelector = mapDispatchToProps[1] || defaultMapOwnProps
+    mapDispatchToProps_definitelyAFactory = !!mapDispatchToProps[2]
   }
   
   if (typeof mapDispatchToProps_selector !== 'function') {
@@ -105,6 +112,7 @@ export default function connect(mapStateToProps, mapDispatchToProps, mergeProps,
         )
         super(props, context)
         this.appendMapStateToProps = this.appendMapStateToProps.bind(this)
+        this.setWrappedInstance = this.setWrappedInstance.bind(this)
         this.store = this.props.store || this.context.store
         this.uniqueId = context.getUniqueId()
         this.appendStateProps = {
@@ -115,13 +123,22 @@ export default function connect(mapStateToProps, mapDispatchToProps, mergeProps,
         this.stateProps = {
           appendStateProps: {}
         }
-        this.mapStateToProps_ownProps = {}
+        this.mapStateToProps_ownProps = mapStateToProps_ownPropsSelector(this.props)
         this.lastFilteredBlackbox = {}
-        const testMapStateToProps = mapStateToProps_selector(this.store.getState(), props)
+        this.mapStateToProps_firstRun_isNotFactory = false
+
+        let testMapStateToProps
+        if(mapStateToProps_definitelyAFactory) {
+          testMapStateToProps = mapStateToProps_selector(this.store.getState(), props)
+        } else {
+          testMapStateToProps = mapStateToProps_selector(this.store.getState(), this.mapStateToProps_ownProps)
+        }
         if(typeof testMapStateToProps === 'function') {
           this.mapStateToProps_selector = testMapStateToProps
         } else {
+          this.mapStateToProps_firstRun_isNotFactory = true
           this.mapStateToProps_selector = mapStateToProps_selector
+          this.stateProps = this.cacheAndSetAllStateProps(testMapStateToProps)
         }
         if(this.mapStateToProps_selector.length ===  1) {
           this.mapStateToProps_dependsOnProps = false
@@ -131,30 +148,39 @@ export default function connect(mapStateToProps, mapDispatchToProps, mergeProps,
           }
           this.mapStateToProps_dependsOnProps = true
         }
-        this.dispatchProps = {}
-        this.mapDispatchToProps_ownProps = {}
-        const testMapDispatchToProps = mapDispatchToProps_selector(this.store.dispatch, props)
+        
+        let testMapDispatchToProps
         let dispatchFactory
+        this.mapDispatchToProps_ownProps = mapDispatchToProps_ownPropsSelector(this.props)
+        this.updateDispatchEverytime = false
+        if(mapDispatchToProps_definitelyAFactory) {
+          testMapDispatchToProps = mapDispatchToProps_selector(this.store.dispatch, props)
+        } else {
+          testMapDispatchToProps = mapDispatchToProps_selector(this.store.dispatch, this.mapDispatchToProps_ownProps)
+        }
         if(typeof testMapDispatchToProps === 'function') {
           dispatchFactory = true
           this.mapDispatchToProps_selector = testMapDispatchToProps
         } else {
           dispatchFactory = false
+          this.mapDispatchToProps_firstRun_isNotFactory = true
           this.mapDispatchToProps_selector = mapDispatchToProps_selector
         }
-        if(mapDispatchToProps_selector.length === 1) {
-          this.dispatchProps = dispatchFactory ? this.mapDispatchToProps_selector(this.store.dispatch, props) : testMapDispatchToProps
-          if (process.env.NODE_ENV !== 'production') {
-            checkStateShape(this.dispatchProps, 'mapDispatchToProps')
-          }
+        if(this.mapDispatchToProps_selector.length === 1) {
           this.mapDispatchToProps_dependsOnProps = false
         } else {
+          if(this.mapDispatchToProps_selector.length === 0) {
+            this.updateDispatchEverytime = true
+          }
           if (process.env.NODE_ENV !== 'production') {
             checkOwnPropsSelector(mapStateToProps_ownPropsSelector, 'mapStateToProps')
           }
           this.mapDispatchToProps_dependsOnProps = true
         }
-
+        this.dispatchProps = dispatchFactory ? this.mapDispatchToProps_selector(this.store.dispatch, this.mapDispatchToProps_ownProps) : testMapDispatchToProps
+        if (process.env.NODE_ENV !== 'production') {
+          checkStateShape(this.dispatchProps, 'mapDispatchToProps')
+        }
       }
       componentDidMount() {
         this.context.addConnectIds && this.context.addConnectIds([ this.uniqueId ])
@@ -204,12 +230,11 @@ export default function connect(mapStateToProps, mapDispatchToProps, mergeProps,
           `To access the wrapped instance, you need to specify ` +
           `{ withRef: true } as the fourth argument of the connect() call.`
         )
-
-        return this.refs.wrappedInstance
+        return this.wrappedInstance
       }
 
       getDispatchProps() {
-        if(!this.mapDispatchToProps_ownProps_didChange()) {
+        if(!this.mapDispatchToProps_firstRun_isNotFactory && !this.updateDispatchEverytime && !this.mapDispatchToProps_ownProps_didChange()) {
           return [ this.dispatchProps, false ]
         }
         return [ this.computeDispatchProps(), true ]
@@ -217,10 +242,8 @@ export default function connect(mapStateToProps, mapDispatchToProps, mergeProps,
       getStateProps() {
         const { blackbox } = this.props
         const stateProps = blackbox[this.uniqueId]
-        if(stateProps) {
-          if(!this.mapStateToProps_ownProps_didChange()) {
-            return stateProps
-          }
+        if(stateProps && !this.mapStateToProps_ownProps_didChange()) {
+          return stateProps
         }
         return this.computeStateProps()
       }
@@ -251,11 +274,19 @@ export default function connect(mapStateToProps, mapDispatchToProps, mergeProps,
       }
 
       computeStateProps() {
+        if(this.mapStateToProps_firstRun_isNotFactory) {
+          this.mapStateToProps_firstRun_isNotFactory = false
+          return this.stateProps
+        }
         const stateProps = this.mapStateToProps_selector(
           this.store.getState(),
           //Maybe use proxy object here to throw error when calling undefined properties
-          this.mapStateToProps_ownProps
+          mapStateToProps_ownPropsSelector(this.props)
         )
+        return this.cacheAndSetAllStateProps(stateProps)
+      }
+
+      cacheAndSetAllStateProps(stateProps) {
         this.context.setMapStateToProps(this.uniqueId, this.allMapStateToProps_selector())
         this.statePropsBase = stateProps
         if (process.env.NODE_ENV !== 'production') {
@@ -265,6 +296,10 @@ export default function connect(mapStateToProps, mapDispatchToProps, mergeProps,
       }
 
       computeDispatchProps() {
+        if(this.mapDispatchToProps_firstRun_isNotFactory) {
+          this.mapDispatchToProps_firstRun_isNotFactory = false
+          return this.dispatchProps
+        }
         const dispatchProps = this.mapDispatchToProps_selector(
           this.store.dispatch,
           //Maybe use proxy object here to throw error when calling undefined properties
@@ -278,8 +313,10 @@ export default function connect(mapStateToProps, mapDispatchToProps, mergeProps,
 
       filterBlackbox_ownProps() {
         const { blackbox, ...ownProps } = this.props
-        delete blackbox[this.uniqueId]
-        if(didPropsChange(blackbox, 'lastFilteredBlackbox', this) || this.haveOwnPropsChanged !== false) {
+
+        const nextBlackbox = { ...blackbox }
+        delete nextBlackbox[this.uniqueId]
+        if(didPropsChange(nextBlackbox, 'lastFilteredBlackbox', this) || this.haveOwnPropsChanged !== false) {
           this.lastFilteredBlackbox_ownProps = { blackbox: this.lastFilteredBlackbox, ...ownProps }
         }
         return this.lastFilteredBlackbox_ownProps || {}
@@ -293,21 +330,28 @@ export default function connect(mapStateToProps, mapDispatchToProps, mergeProps,
         this.mergedProps = nextMergedProps
         return true
       }
-
-      appendMapStateToProps(name, inputs, selector) {
-        if(shallowEqual(this.appendStateProps.inputs[name] || {}, inputs)) {
-          if(
+      inputsChanged(name, inputs) {
+        return !shallowEqual(this.appendStateProps.inputs[name] || {}, inputs)
+      }
+      appendStateProps_nameExists_inBlackbox(name) {
+        return (
           this.props.blackbox[this.uniqueId] && 
           this.props.blackbox[this.uniqueId].appendStateProps && 
-          this.props.blackbox[this.uniqueId].appendStateProps[name]) {
-            return this.props.blackbox[this.uniqueId].appendStateProps[name]
-          }
-        }
+          this.props.blackbox[this.uniqueId].appendStateProps[name]
+        )
+      }
+      computeAppendStateProps(name, inputs, selector) {
         this.setAppendStateProps(name, inputs, selector)
         this.context.setMapStateToProps(this.uniqueId, this.allMapStateToProps_selector())
         const thisAppendStateProps = selector(this.store.getState(), inputs)
         this.stateProps.appendStateProps[name] = thisAppendStateProps
         return thisAppendStateProps
+      }
+      appendMapStateToProps(name, inputs, selector) {
+        if(!this.inputsChanged(name, inputs) && this.appendStateProps_nameExists_inBlackbox(name)) {
+          return this.props.blackbox[this.uniqueId].appendStateProps[name]
+        }
+        return this.computeAppendStateProps(name, inputs, selector)
       }
 
       setAppendStateProps(name, inputs, selector) {
@@ -347,6 +391,9 @@ export default function connect(mapStateToProps, mapDispatchToProps, mergeProps,
           return [ changed, this.stateProps ]
         }
       }
+      setWrappedInstance(ref) {
+        this.wrappedInstance = ref
+      }
 
       render() {
         const nextStateProps = this.getStateProps()
@@ -361,7 +408,7 @@ export default function connect(mapStateToProps, mapDispatchToProps, mergeProps,
         ) {
           haveMergedPropsChanged = this.updateMergedPropsIfNeeded(nextStateProps, nextDispatchProps, this.filterBlackbox_ownProps())
         }
-        if (!haveMergedPropsChanged && this.renderedElement) {
+        if (!haveMergedPropsChanged && pure && this.renderedElement) {
           return (<ShouldComponentUpdate 
             update={false}
             key={`connect-${this.uniqueId}`}
@@ -373,7 +420,7 @@ export default function connect(mapStateToProps, mapDispatchToProps, mergeProps,
             key={`connect-${this.uniqueId}`}
             renderElement={()=>createElement(WrappedComponent, {
               ...this.mergedProps,
-              ref: 'wrappedInstance',
+              ref: this.setWrappedInstance,
               appendMapStateToProps: this.appendMapStateToProps
             })} 
           />)

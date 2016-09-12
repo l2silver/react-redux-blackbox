@@ -1,2 +1,2 @@
-Complete testing for appendMapStateToProps
-Add flowtype
+get refs to work properly
+Add flowtype maybe?

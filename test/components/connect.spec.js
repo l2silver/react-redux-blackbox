@@ -107,7 +107,7 @@ describe('React', () => {
       
       it('should unsetMapStateToProps and clearCache', () => {
         const props = { blackbox }
-        const context = { store, getUniqueId, unsetMapStateToProps }
+        const context = { store, getUniqueId, unsetMapStateToProps, setMapStateToProps }
         const unsetMapStateToPropsSpy = expect.spyOn(context, 'unsetMapStateToProps')
         const container = new Container(props, context)
         const clearCacheSpy = expect.spyOn(container, 'clearCache')
@@ -117,7 +117,7 @@ describe('React', () => {
       })
       it('should unsetMapStateToProps clearCache and removeConnectIds', () => {
         const props = { blackbox: {} }
-        const context = { store, getUniqueId, unsetMapStateToProps, removeConnectIds: ()=>{} }
+        const context = { store, getUniqueId, unsetMapStateToProps, setMapStateToProps, removeConnectIds: ()=>{} }
         const unsetMapStateToPropsSpy = expect.spyOn(context, 'unsetMapStateToProps')
         const removeConntectIdsSpy = expect.spyOn(context, 'removeConnectIds')
         const container = new Container(props, context)
@@ -139,7 +139,7 @@ describe('React', () => {
       it('should return new last filteredBlackbox ownProps', () => {
         const blackbox = { [randomId]: { example: 'test' } }
         const props = { blackbox, otherProps: 'example' }
-        const context = { store, getUniqueId, unsetMapStateToProps }
+        const context = { store, getUniqueId, unsetMapStateToProps, setMapStateToProps }
         const container = new Container(props, context)
         expect(container.lastFilteredBlackbox_ownProps).toBe(undefined) 
         container.filterBlackbox_ownProps()
@@ -616,7 +616,7 @@ describe('React', () => {
       outerComponent.setFoo('BAR')
       outerComponent.setFoo('DID')
 
-      expect(invocationCount).toEqual(4)
+      expect(invocationCount).toEqual(3)
     })
 
     // This is now handled using memoizer selectors like reselect
@@ -766,7 +766,7 @@ describe('React', () => {
       outerComponent.setFoo('BAR')
       outerComponent.setFoo('DID')
 
-      expect(invocationCount).toEqual(4)
+      expect(invocationCount).toEqual(3)
     })
 
     it('should invoke mapDispatch every time props are changed if it has a second argument', () => {
@@ -815,7 +815,7 @@ describe('React', () => {
       outerComponent.setFoo('BAR')
       outerComponent.setFoo('BAZ')
 
-      expect(invocationCount).toEqual(4)
+      expect(invocationCount).toEqual(3)
       expect(propsPassedIn).toEqual({
         foo: 'BAZ'
       })
@@ -919,12 +919,12 @@ describe('React', () => {
         div
       )
 
-      expect(mapStateToPropsCalls).toBe(2)
+      expect(mapStateToPropsCalls).toBe(1)
       const spy = expect.spyOn(console, 'error')
       store.dispatch({ type: 'APPEND', body: 'a' })
       spy.destroy()
       expect(spy.calls.length).toBe(0)
-      expect(mapStateToPropsCalls).toBe(2)
+      expect(mapStateToPropsCalls).toBe(1)
     })
 
     it('should not attempt to set state when dispatching in componentWillUnmount', () => {
@@ -953,13 +953,13 @@ describe('React', () => {
         </ProviderMock>,
         div
       )
-      expect(mapStateToPropsCalls).toBe(2)
+      expect(mapStateToPropsCalls).toBe(1)
 
       const spy = expect.spyOn(console, 'error')
       ReactDOM.unmountComponentAtNode(div)
       spy.destroy()
       expect(spy.calls.length).toBe(0)
-      expect(mapStateToPropsCalls).toBe(2)
+      expect(mapStateToPropsCalls).toBe(1)
     })
 
     it('should shallowly compare the selected state to prevent unnecessary updates', () => {
@@ -1454,7 +1454,6 @@ describe('React', () => {
 
       expect(() => decorated.someInstanceMethod()).toThrow()
       expect(decorated.getWrappedInstance().someInstanceMethod()).toBe(someData)
-      expect(decorated.refs.wrappedInstance.someInstanceMethod()).toBe(someData)
     })
 
     it('should wrap impure components without supressing updates', () => {
@@ -1507,7 +1506,7 @@ describe('React', () => {
       expect(target.props.statefulValue).toEqual(1)
     })
 
-    it.skip('calls mapState and mapDispatch for impure components', () => {
+    it.only('calls mapState and mapDispatch for impure components', () => {
       const store = createStore(() => ({
         foo: 'foo',
         bar: 'bar'
@@ -1657,301 +1656,451 @@ describe('React', () => {
       )
 
       expect(renderCalls).toBe(1)
-      expect(mapStateCalls).toBe(2)
+      expect(mapStateCalls).toBe(1)
       store.dispatch({ type: 'APPEND', body: 'a' })
 
       // After store a change mapState has been called
-      expect(mapStateCalls).toBe(3)
+      expect(mapStateCalls).toBe(2)
       // But render is not because it did not make any actual changes
       expect(renderCalls).toBe(1)
     })
 
-    // it('should bail out early if mapState does not depend on props', () => {
-    //   const store = createStore(stringBuilder)
-    //   let renderCalls = 0
-    //   let mapStateCalls = 0
+    // no longer bailing out early
+    it.skip('should bail out early if mapState does not depend on props', () => {
+      const store = createStore(stringBuilder)
+      let renderCalls = 0
+      let mapStateCalls = 0
 
-    //   @connect(state => {
-    //     mapStateCalls++
-    //     return state === 'aaa' ? { change: 1 } : {}
-    //   })
-    //   class Container extends Component {
-    //     render() {
-    //       renderCalls++
-    //       return <Passthrough {...this.props} />
-    //     }
-    //   }
+      @connect(state => {
+        mapStateCalls++
+        return state === 'aaa' ? { change: 1 } : {}
+      })
+      class Container extends Component {
+        render() {
+          renderCalls++
+          return <Passthrough {...this.props} />
+        }
+      }
 
-    //   TestUtils.renderIntoDocument(
-    //     <ProviderMock store={store}>
-    //       <Container />
-    //     </ProviderMock>
-    //   )
+      TestUtils.renderIntoDocument(
+        <ProviderMock store={store}>
+          <Container />
+        </ProviderMock>
+      )
 
-    //   expect(renderCalls).toBe(1)
-    //   expect(mapStateCalls).toBe(1)
+      expect(renderCalls).toBe(1)
+      expect(mapStateCalls).toBe(1)
 
-    //   const spy = expect.spyOn(Container.prototype, 'setState').andCallThrough()
+      const spy = expect.spyOn(Container.prototype, 'setState').andCallThrough()
 
-    //   store.dispatch({ type: 'APPEND', body: 'a' })
-    //   expect(mapStateCalls).toBe(2)
-    //   expect(renderCalls).toBe(1)
-    //   expect(spy.calls.length).toBe(0)
+      store.dispatch({ type: 'APPEND', body: 'a' })
+      expect(mapStateCalls).toBe(2)
+      expect(renderCalls).toBe(1)
+      expect(spy.calls.length).toBe(0)
 
-    //   store.dispatch({ type: 'APPEND', body: 'a' })
-    //   expect(mapStateCalls).toBe(3)
-    //   expect(renderCalls).toBe(1)
-    //   expect(spy.calls.length).toBe(0)
+      store.dispatch({ type: 'APPEND', body: 'a' })
+      expect(mapStateCalls).toBe(3)
+      expect(renderCalls).toBe(1)
+      expect(spy.calls.length).toBe(0)
 
-    //   store.dispatch({ type: 'APPEND', body: 'a' })
-    //   expect(mapStateCalls).toBe(4)
-    //   expect(renderCalls).toBe(2)
-    //   expect(spy.calls.length).toBe(1)
+      store.dispatch({ type: 'APPEND', body: 'a' })
+      expect(mapStateCalls).toBe(4)
+      expect(renderCalls).toBe(2)
+      expect(spy.calls.length).toBe(1)
 
-    //   spy.destroy()
-    // })
+      spy.destroy()
+    })
 
-    // it('should not swallow errors when bailing out early', () => {
-    //   const store = createStore(stringBuilder)
-    //   let renderCalls = 0
-    //   let mapStateCalls = 0
+    // no longer bailing out early
+    it.skip('should not swallow errors when bailing out early', () => {
+      const store = createStore(stringBuilder)
+      let renderCalls = 0
+      let mapStateCalls = 0
 
-    //   @connect(state => {
-    //     mapStateCalls++
-    //     if (state === 'a') {
-    //       throw new Error('Oops')
-    //     } else {
-    //       return {}
-    //     }
-    //   })
-    //   class Container extends Component {
-    //     render() {
-    //       renderCalls++
-    //       return <Passthrough {...this.props} />
-    //     }
-    //   }
+      @connect(state => {
+        mapStateCalls++
+        if (state === 'a') {
+          throw new Error('Oops')
+        } else {
+          return {}
+        }
+      })
+      class Container extends Component {
+        render() {
+          renderCalls++
+          return <Passthrough {...this.props} />
+        }
+      }
 
-    //   TestUtils.renderIntoDocument(
-    //     <ProviderMock store={store}>
-    //       <Container />
-    //     </ProviderMock>
-    //   )
+      TestUtils.renderIntoDocument(
+        <ProviderMock store={store}>
+          <Container />
+        </ProviderMock>
+      )
 
-    //   expect(renderCalls).toBe(1)
-    //   expect(mapStateCalls).toBe(1)
-    //   expect(
-    //     () => store.dispatch({ type: 'APPEND', body: 'a' })
-    //   ).toThrow('Oops')
-    // })
+      expect(renderCalls).toBe(1)
+      expect(mapStateCalls).toBe(1)
+      expect(
+        () => store.dispatch({ type: 'APPEND', body: 'a' })
+      ).toThrow('Oops')
+    })
 
-    // it('should allow providing a factory function to mapStateToProps', () => {
-    //   let updatedCount = 0
-    //   let memoizedReturnCount = 0
-    //   const store = createStore(() => ({ value: 1 }))
+    it('should allow providing a factory function to mapStateToProps', () => {
+      let updatedCount = 0
+      let memoizedReturnCount = 0
+      const store = createStore(() => ({ value: 1 }))
 
-    //   const mapStateFactory = () => {
-    //     let lastProp, lastVal, lastResult
-    //     return (state, props) => {
-    //       if (props.name === lastProp && lastVal === state.value) {
-    //         memoizedReturnCount++
-    //         return lastResult
-    //       }
-    //       lastProp = props.name
-    //       lastVal = state.value
-    //       return lastResult = { someObject: { prop: props.name, stateVal: state.value } }
-    //     }
-    //   }
+      const mapStateFactory = () => {
+        let lastProp, lastVal, lastResult
+        return (state, props) => {
+          if (props.name === lastProp && lastVal === state.value) {
+            memoizedReturnCount++
+            return lastResult
+          }
+          lastProp = props.name
+          lastVal = state.value
+          return lastResult = { someObject: { prop: props.name, stateVal: state.value } }
+        }
+      }
 
-    //   @connect(mapStateFactory)
-    //   class Container extends Component {
-    //     componentWillUpdate() {
-    //       updatedCount++
-    //     }
-    //     render() {
-    //       return <Passthrough {...this.props} />
-    //     }
-    //   }
+      @connect(mapStateFactory)
+      class Container extends Component {
+        componentWillUpdate() {
+          updatedCount++
+        }
+        render() {
+          return <Passthrough {...this.props} />
+        }
+      }
 
-    //   TestUtils.renderIntoDocument(
-    //     <ProviderMock store={store}>
-    //       <div>
-    //         <Container name="a" />
-    //         <Container name="b" />
-    //       </div>
-    //     </ProviderMock>
-    //   )
+      const component = TestUtils.renderIntoDocument(
+        <ProviderMock store={store}>
+          <div>
+            <Container name="a" blackbox={blackbox} />
+          </div>
+        </ProviderMock>
+      )
+      const container = TestUtils.findRenderedComponentWithType(component, Container)
+      container.mapStateToProps_selector({ value: 1 }, { name: 'a' })
+      expect(updatedCount).toBe(0)
+      expect(memoizedReturnCount).toBe(1)
+    })
 
-    //   store.dispatch({ type: 'test' })
-    //   expect(updatedCount).toBe(0)
-    //   expect(memoizedReturnCount).toBe(2)
-    // })
+    it('should allow providing a factory function to mapDispatchToProps', () => {
+      let updatedCount = 0
+      let memoizedReturnCount = 0
+      const store = createStore(() => ({ value: 1 }))
 
-    // it('should allow providing a factory function to mapDispatchToProps', () => {
-    //   let updatedCount = 0
-    //   let memoizedReturnCount = 0
-    //   const store = createStore(() => ({ value: 1 }))
+      const mapDispatchFactory = () => {
+        let lastProp, lastResult
+        return (dispatch, props) => {
+          if (props.name === lastProp) {
+            memoizedReturnCount++
+            return lastResult
+          }
+          lastProp = props.name
+          return lastResult = { someObject: { dispatchFn: dispatch } }
+        }
+      }
+      function mergeParentDispatch(stateProps, dispatchProps, parentProps) {
+        return { ...stateProps, ...dispatchProps, name: parentProps.name }
+      }
 
-    //   const mapDispatchFactory = () => {
-    //     let lastProp, lastResult
-    //     return (dispatch, props) => {
-    //       if (props.name === lastProp) {
-    //         memoizedReturnCount++
-    //         return lastResult
-    //       }
-    //       lastProp = props.name
-    //       return lastResult = { someObject: { dispatchFn: dispatch } }
-    //     }
-    //   }
-    //   function mergeParentDispatch(stateProps, dispatchProps, parentProps) {
-    //     return { ...stateProps, ...dispatchProps, name: parentProps.name }
-    //   }
+      @connect(null, mapDispatchFactory, mergeParentDispatch)
+      class Passthrough extends Component {
+        componentWillUpdate() {
+          updatedCount++
+        }
+        render() {
+          return <div {...this.props} />
+        }
+      }
 
-    //   @connect(null, mapDispatchFactory, mergeParentDispatch)
-    //   class Passthrough extends Component {
-    //     componentWillUpdate() {
-    //       updatedCount++
-    //     }
-    //     render() {
-    //       return <div {...this.props} />
-    //     }
-    //   }
+      class Container extends Component {
+        constructor(props) {
+          super(props)
+          this.state = { count: 0 }
+        }
+        componentDidMount() {
+          this.setState({ count: 1 })
+        }
+        render() {
+          const { count } = this.state
+          return (
+            <div>
+              <Passthrough count={count} name="a" blackbox={blackbox}/>
+            </div>
+          )
+        }
+      }
 
-    //   class Container extends Component {
-    //     constructor(props) {
-    //       super(props)
-    //       this.state = { count: 0 }
-    //     }
-    //     componentDidMount() {
-    //       this.setState({ count: 1 })
-    //     }
-    //     render() {
-    //       const { count } = this.state
-    //       return (
-    //         <div>
-    //           <Passthrough count={count} name="a" />
-    //           <Passthrough count={count} name="b" />
-    //         </div>
-    //       )
-    //     }
-    //   }
+      const component = TestUtils.renderIntoDocument(
+        <ProviderMock store={store}>
+          <div>
+            <Container name="a" />
+          </div>
+        </ProviderMock>
+      )
+      const container = TestUtils.findRenderedComponentWithType(component, Passthrough)
+      container.mapStateToProps_selector({ value: 1 }, { name: 'a' })
+      expect(updatedCount).toBe(0)
+      expect(memoizedReturnCount).toBe(1)
+    })
 
-    //   TestUtils.renderIntoDocument(
-    //     <ProviderMock store={store}>
-    //       <Container />
-    //     </ProviderMock>
-    //   )
+    it('should not call update if mergeProps return value has not changed', () => {
+      let mapStateCalls = 0
+      let renderCalls = 0
+      const store = createStore(stringBuilder)
 
-    //   store.dispatch({ type: 'test' })
-    //   expect(updatedCount).toBe(0)
-    //   expect(memoizedReturnCount).toBe(2)
-    // })
+      @connect(() => ({ a: ++mapStateCalls }), null, () => ({ changed: false }))
+      class Container extends Component {
+        render() {
+          renderCalls++
+          return <Passthrough {...this.props} />
+        }
+      }
+      function ProviderContent() {
+        return <Container blackbox={blackbox} />
+      }
+      TestUtils.renderIntoDocument(
+        <Provider store={store}>
+          <ProviderContent />
+        </Provider>
+      )
 
-    // it('should not call update if mergeProps return value has not changed', () => {
-    //   let mapStateCalls = 0
-    //   let renderCalls = 0
-    //   const store = createStore(stringBuilder)
+      expect(renderCalls).toBe(1)
+      expect(mapStateCalls).toBe(1)
 
-    //   @connect(() => ({ a: ++mapStateCalls }), null, () => ({ changed: false }))
-    //   class Container extends Component {
-    //     render() {
-    //       renderCalls++
-    //       return <Passthrough {...this.props} />
-    //     }
-    //   }
+      store.dispatch({ type: 'APPEND', body: 'a' })
 
-    //   TestUtils.renderIntoDocument(
-    //     <ProviderMock store={store}>
-    //       <Container />
-    //     </ProviderMock>
-    //   )
+      expect(mapStateCalls).toBe(2)
+      expect(renderCalls).toBe(1)
+    })
 
-    //   expect(renderCalls).toBe(1)
-    //   expect(mapStateCalls).toBe(1)
+    it('should update impure components with custom mergeProps', () => {
+      let store = createStore(() => ({}))
+      let renderCount = 0
 
-    //   store.dispatch({ type: 'APPEND', body: 'a' })
+      @connect(null, null, () => ({ a: 1 }), { pure: false })
+      class Container extends React.Component {
+        render() {
+          ++renderCount
+          return <div />
+        }
+      }
 
-    //   expect(mapStateCalls).toBe(2)
-    //   expect(renderCalls).toBe(1)
-    // })
+      class Parent extends React.Component {
+        componentDidMount() {
+          this.forceUpdate()
+        }
+        render() {
+          return <Container blackbox={blackbox}/>
+        }
+      }
 
-    // it('should update impure components with custom mergeProps', () => {
-    //   let store = createStore(() => ({}))
-    //   let renderCount = 0
+      TestUtils.renderIntoDocument(
+        <ProviderMock store={store}>
+          <Parent>
+            <Container blackbox={blackbox}/>
+          </Parent>
+        </ProviderMock>
+      )
 
-    //   @connect(null, null, () => ({ a: 1 }), { pure: false })
-    //   class Container extends React.Component {
-    //     render() {
-    //       ++renderCount
-    //       return <div />
-    //     }
-    //   }
+      expect(renderCount).toBe(2)
+    })
 
-    //   class Parent extends React.Component {
-    //     componentDidMount() {
-    //       this.forceUpdate()
-    //     }
-    //     render() {
-    //       return <Container />
-    //     }
-    //   }
+    it('should allow to clean up child state in parent componentWillUnmount', () => {
+      function reducer(state = { data: null }, action) {
+        switch (action.type) {
+          case 'fetch':
+            return { data: { profile: { name: 'April' } } }
+          case 'clean':
+            return { data: null }
+          default:
+            return state
+        }
+      }
 
-    //   TestUtils.renderIntoDocument(
-    //     <ProviderMock store={store}>
-    //       <Parent>
-    //         <Container />
-    //       </Parent>
-    //     </ProviderMock>
-    //   )
+      @connect(null)
+      class Parent extends React.Component {
+        componentWillMount() {
+          this.props.dispatch({ type: 'fetch' })
+        }
 
-    //   expect(renderCount).toBe(2)
-    // })
+        componentWillUnmount() {
+          this.props.dispatch({ type: 'clean' })
+        }
 
-    // it('should allow to clean up child state in parent componentWillUnmount', () => {
-    //   function reducer(state = { data: null }, action) {
-    //     switch (action.type) {
-    //       case 'fetch':
-    //         return { data: { profile: { name: 'April' } } }
-    //       case 'clean':
-    //         return { data: null }
-    //       default:
-    //         return state
-    //     }
-    //   }
+        render() {
+          return <Child {...this.props}/>
+        }
+      }
 
-    //   @connect(null)
-    //   class Parent extends React.Component {
-    //     componentWillMount() {
-    //       this.props.dispatch({ type: 'fetch' })
-    //     }
+      @connect(state => ({
+        profile: state.data.profile
+      }))
+      class Child extends React.Component {
+        render() {
+          return null
+        }
+      }
+      function ProviderContent(props) {
+        return <Parent {...props}/>
+      }
+      const store = createStore(reducer)
+      const div = document.createElement('div')
+      ReactDOM.render(
+        <Provider store={store}>
+          <ProviderContent />
+        </Provider>,
+        div
+      )
 
-    //     componentWillUnmount() {
-    //       this.props.dispatch({ type: 'clean' })
-    //     }
+      ReactDOM.unmountComponentAtNode(div)
+    })
+    describe('appendStateProps', ()=>{
+      let container
+      function generateContainer(blackbox) {
+        const store = createStore(() => ({}))
+        
+        @connect()
+        class Container extends React.Component {
+          render() {
+            return <div />
+          }
+        }
 
-    //     render() {
-    //       return <Child />
-    //     }
-    //   }
+        const component = TestUtils.renderIntoDocument(
+          <ProviderMock store={store}>
+            <Container blackbox={blackbox}/>
+          </ProviderMock>
+        )
+        container = TestUtils.findRenderedComponentWithType(component, Container)
+      }
+      it('should computeAppendStateProps', ()=>{
+        generateContainer(blackbox) 
+        const setMapStateToProps = expect.spyOn(container.context, 'setMapStateToProps')
+        const defaultReturn = {}
+        const inputs = {}
+        const selector = ()=>defaultReturn
+        expect(container.computeAppendStateProps('example', inputs, selector)).toBe(defaultReturn)
+        expect(container.appendStateProps.names.example).toBe(null)
+        expect(container.appendStateProps.selectors.example).toBe(selector)
+        expect(container.appendStateProps.inputs.example).toBe(inputs)
+        expect(setMapStateToProps).toHaveBeenCalledWith(container.uniqueId, container.allMapStateToProps_selector())
+        expect(container.stateProps.appendStateProps.example).toBe(defaultReturn)
+        
+      })
+      it('should setAppendStateProps if inputs change', ()=>{
+        generateContainer(blackbox)
+        container.appendStateProps.inputs.example = { differentInput: 'yeah' }
+        const defaultReturn = {}
+        const inputs = {}
+        const selector = ()=>defaultReturn
+        const appendStateProps_nameExists_inBlackbox = expect.spyOn(container, 'appendStateProps_nameExists_inBlackbox')
+        const computeAppendStateProps = expect.spyOn(container, 'computeAppendStateProps').andReturn(defaultReturn)
+        expect(container.appendMapStateToProps('example', inputs, selector)).toBe(defaultReturn)
+        expect(appendStateProps_nameExists_inBlackbox.calls.length).toBe(0)
+        expect(computeAppendStateProps).toHaveBeenCalledWith('example', inputs, selector)
+      })
+      it('should setAppendStateProps if blackbox is not set', ()=>{
+        generateContainer(blackbox)
+        const defaultReturn = {}
+        const inputs = {}
+        const selector = ()=>defaultReturn
+        const appendStateProps_nameExists_inBlackbox = expect.spyOn(container, 'appendStateProps_nameExists_inBlackbox')
+        const computeAppendStateProps = expect.spyOn(container, 'computeAppendStateProps').andReturn(defaultReturn)
+        expect(container.appendMapStateToProps('example', inputs, selector)).toBe(defaultReturn)
+        expect(appendStateProps_nameExists_inBlackbox).toHaveBeenCalledWith('example')
+        expect(computeAppendStateProps).toHaveBeenCalledWith('example', inputs, selector)
+      })
+      it('should return blackbox if blackbox.appendStateProps.name exists and inputs are the same', ()=>{
+        const defaultReturn = {}
+        const inputs = {}
+        const selector = ()=>defaultReturn
+        const blackbox = { [randomId]: { appendStateProps: { example: defaultReturn } } }
+        generateContainer(blackbox)
+        const computeAppendStateProps = expect.spyOn(container, 'computeAppendStateProps')
+        expect(container.appendMapStateToProps('example', inputs, selector)).toBe(defaultReturn)
+        expect(computeAppendStateProps.calls.length).toBe(0)
+      })
+    })
+    describe('allMapStateToProps_selector', ()=>{
+      let container
+      const defaultBaseStateResult = {}
+      beforeEach(()=>{
+        const store = createStore(() => ({}))
+      
+        @connect(()=>defaultBaseStateResult)
+        class Container extends React.Component {
+          render() {
+            return <div />
+          }
+        }
 
-    //   @connect(state => ({
-    //     profile: state.data.profile
-    //   }))
-    //   class Child extends React.Component {
-    //     render() {
-    //       return null
-    //     }
-    //   }
+        const component = TestUtils.renderIntoDocument(
+          <ProviderMock store={store}>
+            <Container blackbox={blackbox}/>
+          </ProviderMock>
+        )
 
-    //   const store = createStore(reducer)
-    //   const div = document.createElement('div')
-    //   ReactDOM.render(
-    //     <ProviderMock store={store}>
-    //       <Parent />
-    //     </ProviderMock>,
-    //     div
-    //   )
-
-    //   ReactDOM.unmountComponentAtNode(div)
-    // })
+        container = TestUtils.findRenderedComponentWithType(component, Container)
+      })
+      it('should change statePropsBase if not equal to baseMapStateToProps', ()=>{
+        container.statePropsBase = { different: 'value' }
+        container.statePropsChanged = false
+        expect(container.allMapStateToProps_selector()({})).toEqual([ true, { appendStateProps: {} } ])
+        expect(container.statePropsBase).toEqual({})
+        expect(container.statePropsChanged).toBe(true)
+      })
+      it('should change stateProps.appendStateProps if not equal to thisAppendStateProps', ()=>{
+        const defaultReturn = { actual: 'value' }
+        container.appendStateProps.names.example = null
+        container.appendStateProps.inputs.example = {}
+        container.appendStateProps.selectors.example = ()=>defaultReturn
+        container.stateProps.appendStateProps.example = { different: 'value' }
+        container.statePropsChanged = false
+        expect(container.allMapStateToProps_selector()({})).toEqual([ true, { appendStateProps: { example: defaultReturn } } ])
+        expect(container.stateProps.appendStateProps.example).toBe(defaultReturn)
+        expect(container.statePropsChanged).toBe(true)
+      })
+      it('should return last state props if nothing changed', ()=>{
+        container.statePropsChanged = null
+        container.statePropsBase = defaultBaseStateResult
+        expect(container.allMapStateToProps_selector()({})).toEqual([ false, { appendStateProps: {} } ])
+        expect(container.statePropsChanged).toBe(false)
+      })
+      // allMapStateToProps_selector() {
+      //   return (state)=>{
+      //     let changed = false
+      //     let appendStatePropsChanged = false
+      //     const baseMapStateToProps = this.mapStateToProps_selector(state, this.mapStateToProps_ownProps)
+      //     if(this.statePropsBase !== baseMapStateToProps) {
+      //       changed = true
+      //       this.statePropsBase = baseMapStateToProps
+      //       this.stateProps = { appendStateProps: this.stateProps.appendStateProps, ...baseMapStateToProps }
+      //     }
+      //     Object.keys(this.appendStateProps.names).forEach((name) => {
+      //       const thisAppendStateProps = this.appendStateProps.selectors[name](state, this.appendStateProps.inputs[name])
+      //       if(this.stateProps.appendStateProps[name] !== thisAppendStateProps) {
+      //         this.stateProps.appendStateProps[name] = thisAppendStateProps
+      //         if(!appendStatePropsChanged) {
+      //           appendStatePropsChanged = true
+      //           this.stateProps.appendStateProps = { ...this.stateProps.appendStateProps }
+      //         }
+      //       }
+      //     })
+      //     if(appendStatePropsChanged || changed) {
+      //       this.statePropsChanged = true
+      //     }else {
+      //       this.statePropsChanged = false
+      //     }
+      //     if(appendStatePropsChanged) {
+      //       return [ appendStatePropsChanged, { ...this.stateProps } ]
+      //     }
+      //     return [ changed, this.stateProps ]
+      //   }
+      // }
+    })
   })
 })
