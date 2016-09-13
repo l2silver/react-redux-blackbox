@@ -1,7 +1,5 @@
 import expect from 'expect'
-import React, { createClass, Children, PropTypes, Component } from 'react'
-import ReactDOM from 'react-dom'
-import TestUtils from 'react-addons-test-utils'
+import React, { PropTypes, Component } from 'react'
 import { filter } from '../../src/index'
 
 describe('React', () => {

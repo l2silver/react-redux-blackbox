@@ -6,7 +6,9 @@ import { createStore } from 'redux'
 import { connect, Provider } from '../../src/index'
 
 const randomId = Math.floor((Math.random() * 100000))
+/*eslint-disable no-unused-vars */
 const dispatch = (action) => action
+/*eslint-enable no-unused-vars */
 describe('React', () => {
   describe('connect', () => {
     class Passthrough extends Component {
@@ -1105,10 +1107,11 @@ describe('React', () => {
           { blackbox }
         )
       }
-
+/*eslint-disable no-unused-vars */
       function AwesomeMap(state) { }
 
       let spy = expect.spyOn(console, 'error')
+      
       TestUtils.renderIntoDocument(
         <ProviderMock store={store}>
           
@@ -1116,109 +1119,118 @@ describe('React', () => {
           
         </ProviderMock>
       )
+/*eslint-enable no-unused-vars */      
       spy.destroy()
       expect(spy.calls.length).toBe(1)
       expect(spy.calls[0].arguments[0]).toMatch(
         /mapStateToProps\(\) in Connect\(Container\) must return a plain object/
       )
 
-
+/*eslint-disable no-unused-vars */
       spy = expect.spyOn(console, 'error')
       TestUtils.renderIntoDocument(
         <ProviderMock store={store}>
           {makeContainer((props) => 'hey', (dispatch) => ({}), () => ({}))}
         </ProviderMock>
       )
+/*eslint-enable no-unused-vars */
       spy.destroy()
       expect(spy.calls.length).toBe(1)
       expect(spy.calls[0].arguments[0]).toMatch(
         /mapStateToProps\(\) in Connect\(Container\) must return a plain object/
       )
       
-
+/*eslint-disable no-unused-vars */
       spy = expect.spyOn(console, 'error')
       TestUtils.renderIntoDocument(
         <ProviderMock store={store}>
           {makeContainer((state) => new AwesomeMap(state), (dispatch) => ({}), () => ({}))}
         </ProviderMock>
       )
+/*eslint-enable no-unused-vars */
       spy.destroy()
       expect(spy.calls.length).toBe(1)
       expect(spy.calls[0].arguments[0]).toMatch(
         /mapStateToProps\(\) in Connect\(Container\) must return a plain object/
       )
 
-
+/*eslint-disable no-unused-vars */
       spy = expect.spyOn(console, 'error')
       TestUtils.renderIntoDocument(
         <ProviderMock store={store}>
           {makeContainer((state) => ({}), (dispatch) => 1, () => ({}))}
         </ProviderMock>
       )
+/*eslint-enable no-unused-vars */
       spy.destroy()
       expect(spy.calls.length).toBe(1)
       expect(spy.calls[0].arguments[0]).toMatch(
         /mapDispatchToProps\(\) in Connect\(Container\) must return a plain object/
       )
       
-
+/*eslint-disable no-unused-vars */
       spy = expect.spyOn(console, 'error')
       TestUtils.renderIntoDocument(
         <ProviderMock store={store}>
           {makeContainer((state) => ({}), (dispatch) => 'hey', () => ({}))}
         </ProviderMock>
       )
+/*eslint-enable no-unused-vars */
       spy.destroy()
       expect(spy.calls.length).toBe(1)
       expect(spy.calls[0].arguments[0]).toMatch(
         /mapDispatchToProps\(\) in Connect\(Container\) must return a plain object/
       )
       
-
+/*eslint-disable no-unused-vars */
       spy = expect.spyOn(console, 'error')
       TestUtils.renderIntoDocument(
         <ProviderMock store={store}>
           {makeContainer((state) => ({}), (dispatch) => new AwesomeMap(), () => ({}))}
         </ProviderMock>
       )
+/*eslint-enable no-unused-vars */
       spy.destroy()
       expect(spy.calls.length).toBe(1)
       expect(spy.calls[0].arguments[0]).toMatch(
         /mapDispatchToProps\(\) in Connect\(Container\) must return a plain object/
       )
 
-
+/*eslint-disable no-unused-vars */
       spy = expect.spyOn(console, 'error')
       TestUtils.renderIntoDocument(
         <ProviderMock store={store}>
           {makeContainer((state) => ({}), (dispatch) => ({}), () => 1)}
         </ProviderMock>
       )
+/*eslint-enable no-unused-vars */
       spy.destroy()
       expect(spy.calls.length).toBe(1)
       expect(spy.calls[0].arguments[0]).toMatch(
         /mergeProps\(\) in Connect\(Container\) must return a plain object/
       )
-
+/*eslint-disable no-unused-vars */
       spy = expect.spyOn(console, 'error')
       TestUtils.renderIntoDocument(
         <ProviderMock store={store}>
           {makeContainer((state) => ({}), (dispatch) => ({}), () => 'hey')}
         </ProviderMock>
       )
+/*eslint-enable no-unused-vars */
       spy.destroy()
       expect(spy.calls.length).toBe(1)
       expect(spy.calls[0].arguments[0]).toMatch(
         /mergeProps\(\) in Connect\(Container\) must return a plain object/
       )
       
-
+/*eslint-disable no-unused-vars */
       spy = expect.spyOn(console, 'error')
       TestUtils.renderIntoDocument(
         <ProviderMock store={store}>
           {makeContainer((state) => ({}), (dispatch) => ({}), () => new AwesomeMap())}
         </ProviderMock>
       )
+/*eslint-enable no-unused-vars */
       spy.destroy()
       expect(spy.calls.length).toBe(1)
       expect(spy.calls[0].arguments[0]).toMatch(
@@ -1591,8 +1603,9 @@ describe('React', () => {
           )
         }
       }
-
+/*eslint-disable no-unused-vars */
       @connect((state, parentProps) => {
+/*eslint-enable no-unused-vars */
         childMapStateInvokes++
         // The state from parent props should always be consistent with the current state
         //The below expectation no longer holds because of how blackbox always calculates mapStateToProps with the last props
