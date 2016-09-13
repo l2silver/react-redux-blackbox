@@ -2,10 +2,13 @@ React Redux Blackbox
 =========================
 
 Unofficial React bindings for [Redux](https://github.com/reactjs/redux).  
-A more functional approach, but not to be used without a thorough understanding of the official bindings, react-redux
+A more functional approach, but not to be used without a thorough understanding of the official bindings, [react-redux](https://github.com/reactjs/react-redux).
 
-[![build status](https://img.shields.io/travis/reactjs/react-redux/master.svg?style=flat-square)](https://travis-ci.org/reactjs/react-redux)
+[![Build Status](https://travis-ci.org/l2silver/react-redux-blackbox.svg?branch=master)](https://travis-ci.org/l2silver/react-redux-blackbox)
 
+## Additional Resources
+[Functionally sexier unofficial react redux bindings: The Medium Article](https://medium.com/p/a94141ed00c7)  
+[TJs frontend-boilerplate with blackbox](https://github.com/l2silver/frontend-boilerplate-blackbox)
 
 ## Installation
 
@@ -22,9 +25,9 @@ Providers are the only component connected to the store. All connect mapStateToP
 ## New connect implimentation
 
 ```
-import filterConnect from 'react-redux-blackbox'
+import { filterConnect } from 'react-redux-blackbox'
 
-filterConnect(
+const Wrapped = filterConnect(
 	(state, props)=>{...},
 	(dispatch, props)=>{...},
 	(stateProps, dispatchProps, ownProps)=>{...},
@@ -33,12 +36,26 @@ filterConnect(
 
 or
 
-filterConnect(
+const Wrapped = filterConnect(
 	[(state, resultProps)=>{...}, props=>resultProps],
 	[(dispatch, resultProps)=>{...}, props=>resultProps],
 	(stateProps, dispatchProps, ownProps)=>{...}, 
 	options
-)
+)(Container)
 ```
 
 I've added the extra props change check because with blackbox, mapStateToProps functions that rely on props will do a double calculation everytime the resultProps change. This way we avoid double calculations when the resultProps are shallow equal.
+
+```
+import { Provider } from 'react-redux-blackbox'
+
+function ProviderContent(props){
+	<Wrapped blackbox={props.blackbox} />
+}
+
+<Provider store={store}>
+	<ProviderContent />
+</Provider>
+```
+
+Provider passes its only child the blackbox object through props, and from their you pass the blackbox to all the filterConnect components
