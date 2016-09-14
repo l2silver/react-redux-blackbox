@@ -71,7 +71,7 @@ export default function wrapWithFilter(WrappedComponent, options = {}) {
     }
 
     componentWillUnmount() {
-      this.context.removeConnectIds(this.connectIds)
+      this.context.removeConnectIds && this.context.removeConnectIds(this.connectIds)
       this.clearCache()
     }
 
