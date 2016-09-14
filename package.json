@@ -34,7 +34,8 @@
     "live",
     "edit",
     "flux",
-    "redux"
+    "redux",
+    "blackbox"
   ],
   "author": "Dan Abramov <dan.abramov@me.com> (http://github.com/gaearon)",
   "license": "MIT",
